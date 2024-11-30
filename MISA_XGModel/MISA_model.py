@@ -5,12 +5,13 @@ from xgboost import XGBRegressor
 import joblib
 import xarray as xr
 import pandas as pd
+import importlib.resources as pkg_resources
+from MISA_XGModel import data  # Import the package where your data files are located
 
-# Dropbox URL for the model
-MODEL_URL = "https://www.dropbox.com/scl/fi/buerwbp580l98c5egbmvg/xgboost_optimized_model.json?rlkey=0mxboow2r44j7pz3xx199inko&st=i04b1r5j&dl=1"  # Replace <file_id> with actual file ID
-MODEL_PATH = "data/xgboost_optimized_model.json"
-SCALER_PATH = "data/scaler_large.pkl"
-MASTER_GEO_DS_PATH = "data/master_geo_ds.nc"
+# Define file names (these files should be in the MISA_XGModel/data directory)
+MODEL_FILE_NAME = "xgboost_optimized_model.json"
+SCALER_FILE_NAME = "scaler_large.pkl"
+MASTER_GEO_DS_FILE_NAME = "master_geo_ds.nc"
 
 # Bounds for clamping
 input_bounds = {
@@ -21,30 +22,29 @@ input_bounds = {
 }
 
 
-# Utility to clamp values
 def clamp(value, min_value, max_value):
     """Clamp a value to the specified range."""
     return max(min_value, min(max_value, value))
 
 
-# Utility to download the model from Dropbox
-def download_model(url, save_path):
-    """Download the model file from a URL if it doesn't exist locally."""
-    if not os.path.exists(save_path):
-        print(f"Downloading model from {url}...")
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        response = requests.get(url, stream=True)
-        if response.status_code == 200:
-            with open(save_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):  # 8 KB chunks
-                    f.write(chunk)
-            print(f"Model downloaded and saved to {save_path}.")
-        else:
-            raise RuntimeError(f"Failed to download model. HTTP Status Code: {response.status_code}")
+def load_resource(file_name):
+    """
+    Load a file from the package resources.
+
+    Parameters:
+        file_name (str): The name of the file to load.
+
+    Returns:
+        str: Path to the temporary extracted file.
+    """
+    with pkg_resources.path(data, file_name) as resource_path:
+        return str(resource_path)
 
 
-# Download the model if needed
-download_model(MODEL_URL, MODEL_PATH)
+# Load resources
+MODEL_PATH = load_resource(MODEL_FILE_NAME)
+SCALER_PATH = load_resource(SCALER_FILE_NAME)
+MASTER_GEO_DS_PATH = load_resource(MASTER_GEO_DS_FILE_NAME)
 
 # Load the model, scaler, and geophysical dataset
 optimized_xgb = XGBRegressor()

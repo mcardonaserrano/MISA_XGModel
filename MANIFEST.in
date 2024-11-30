@@ -1,2 +1,2 @@
-include MISA_XGModel/data/master_geo_ds.nc
-include MISA_XGModel/data/scaler_large.pkl
+include MISA_XGModel/data/*.pkl
+include MISA_XGModel/data/*.nc
