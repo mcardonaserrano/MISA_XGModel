@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="MISA_XGModel",  # Replace with your project name
-    version="0.1.3",  # Semantic versioning (Major.Minor.Patch)
+    version="0.1.4",  # Semantic versioning (Major.Minor.Patch)
     author="Mateo Cardona Serrano",  # Replace with your name
     author_email="mcardonaserrano@berkeley.edu",  # Replace with your email
     description="A Python library for predicting electron density using XGBoost",  # Short description
@@ -20,9 +20,6 @@ setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.7",  # Minimum Python version required
-    package_data={
-        "MISA_XGModel": ["data/scaler_large.pkl"],  # Include only this specific files. others too big
-    },
     install_requires=[
         "xgboost",  # Add your dependencies here
         "numpy",

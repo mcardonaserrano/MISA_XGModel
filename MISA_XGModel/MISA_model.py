@@ -6,11 +6,12 @@ import joblib
 import xarray as xr
 import pandas as pd
 
-# Dropbox URLs for files
+# Dropbox URLs for required files
 MODEL_URL = "https://www.dropbox.com/scl/fi/buerwbp580l98c5egbmvg/xgboost_optimized_model.json?rlkey=0mxboow2r44j7pz3xx199inko&dl=1"
-MASTER_GEO_DS_URL = "https://www.dropbox.com/scl/fi/m6p9h25h2f517ibk1a233/master_geo_ds.nc?rlkey=8tw5idep8mu1prydtbn3vjl87&st=8zo54jno&dl=1"
+SCALER_URL = "https://www.dropbox.com/scl/fi/u3rbjhjmrl91umdfr3i7y/scaler_large.pkl?rlkey=u25qcisn99hynbg6mdp9c1zu5&st=zyft5n1t&dl=1"
+GEO_DS_URL = "https://www.dropbox.com/scl/fi/m6p9h25h2f517ibk1a233/master_geo_ds.nc?rlkey=8tw5idep8mu1prydtbn3vjl87&st=8zo54jno&dl=1"
 
-# Paths for files
+# Paths to save downloaded files
 MODEL_PATH = "data/xgboost_optimized_model.json"
 SCALER_PATH = "data/scaler_large.pkl"
 MASTER_GEO_DS_PATH = "data/master_geo_ds.nc"
@@ -46,9 +47,10 @@ def download_file(url, save_path):
             raise RuntimeError(f"Failed to download file. HTTP Status Code: {response.status_code}")
 
 
-# Download the required files if needed
+# Download required files
 download_file(MODEL_URL, MODEL_PATH)
-download_file(MASTER_GEO_DS_URL, MASTER_GEO_DS_PATH)
+download_file(SCALER_URL, SCALER_PATH)
+download_file(GEO_DS_URL, MASTER_GEO_DS_PATH)
 
 # Load the model, scaler, and geophysical dataset
 optimized_xgb = XGBRegressor()
