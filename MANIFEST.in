@@ -1,2 +1,1 @@
 include MISA_XGModel/data/*.pkl
-include MISA_XGModel/data/*.nc
