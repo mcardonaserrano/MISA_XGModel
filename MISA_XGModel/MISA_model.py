@@ -2,18 +2,19 @@ import requests
 import os
 import numpy as np
 from xgboost import XGBRegressor
-import joblib
 import xarray as xr
 import pandas as pd
+import json
+from sklearn.preprocessing import StandardScaler
 
 # Dropbox URLs for required files
 MODEL_URL = "https://www.dropbox.com/scl/fi/buerwbp580l98c5egbmvg/xgboost_optimized_model.json?rlkey=0mxboow2r44j7pz3xx199inko&dl=1"
-SCALER_URL = "https://www.dropbox.com/scl/fi/u3rbjhjmrl91umdfr3i7y/scaler_large.pkl?rlkey=u25qcisn99hynbg6mdp9c1zu5&st=zyft5n1t&dl=1"
+SCALER_URL = "https://www.dropbox.com/scl/fi/6oas604oh4xcupzc8at2b/scaler_large.json?rlkey=6huwm1baf1vc7cf9r4of4xxds&st=2s3wu078&dl=1"
 GEO_DS_URL = "https://www.dropbox.com/scl/fi/m6p9h25h2f517ibk1a233/master_geo_ds.nc?rlkey=8tw5idep8mu1prydtbn3vjl87&st=8zo54jno&dl=1"
 
 # Paths to save downloaded files
 MODEL_PATH = "data/xgboost_optimized_model.json"
-SCALER_PATH = "data/scaler_large.pkl"
+SCALER_PATH = "data/scaler_large.json"
 MASTER_GEO_DS_PATH = "data/master_geo_ds.nc"
 
 # Bounds for clamping
@@ -46,16 +47,29 @@ def download_file(url, save_path):
         else:
             raise RuntimeError(f"Failed to download file. HTTP Status Code: {response.status_code}")
 
+# Utility to load scaler
+def load_scaler(json_path):
+    """Load a StandardScaler from a JSON file."""
+    with open(json_path, "r") as f:
+        scaler_params = json.load(f)
+
+    scaler = StandardScaler()
+    scaler.mean_ = np.array(scaler_params["mean"])
+    scaler.scale_ = np.array(scaler_params["scale"])
+    scaler.var_ = np.array(scaler_params["var"])
+    scaler.n_features_in_ = len(scaler.mean_)  # Ensure compatibility with sklearn's expectations
+    return scaler
 
 # Download required files
 download_file(MODEL_URL, MODEL_PATH)
 download_file(SCALER_URL, SCALER_PATH)
 download_file(GEO_DS_URL, MASTER_GEO_DS_PATH)
 
+
 # Load the model, scaler, and geophysical dataset
 optimized_xgb = XGBRegressor()
 optimized_xgb.load_model(MODEL_PATH)
-scaler_large = joblib.load(SCALER_PATH)
+scaler_large = load_scaler(SCALER_PATH)
 master_geo_ds = xr.open_dataset(MASTER_GEO_DS_PATH)
 
 
