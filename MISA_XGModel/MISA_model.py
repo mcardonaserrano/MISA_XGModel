@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 # Dropbox URLs for required files
 MODEL_URL = "https://www.dropbox.com/scl/fi/buerwbp580l98c5egbmvg/xgboost_optimized_model.json?rlkey=0mxboow2r44j7pz3xx199inko&dl=1"
 SCALER_URL = "https://www.dropbox.com/scl/fi/6oas604oh4xcupzc8at2b/scaler_large.json?rlkey=6huwm1baf1vc7cf9r4of4xxds&st=2s3wu078&dl=1"
-GEO_DS_URL = "https://www.dropbox.com/scl/fi/m6p9h25h2f517ibk1a233/master_geo_ds.nc?rlkey=8tw5idep8mu1prydtbn3vjl87&st=8zo54jno&dl=1"
+GEO_DS_URL = "https://www.dropbox.com/scl/fi/m9loyzdo0r6j5mvb5lku4/master_geo_ds.nc?rlkey=6s7br1o4wh7vbiuctmrtlhe7v&st=x4mpl3e3&dl=1"
 
 # Paths to save downloaded files
 MODEL_PATH = "data/xgboost_optimized_model.json"
@@ -24,12 +24,6 @@ input_bounds = {
     'alt': (np.float64(94.6), np.float64(500)),
     'slt': (np.float64(0.0), np.float64(24))
 }
-
-
-# Utility to clamp values
-def clamp(value, min_value, max_value):
-    """Clamp a value to the specified range."""
-    return max(min_value, min(max_value, value))
 
 
 # Utility to download files from Dropbox
@@ -72,57 +66,80 @@ optimized_xgb.load_model(MODEL_PATH)
 scaler_large = load_scaler(SCALER_PATH)
 master_geo_ds = xr.open_dataset(MASTER_GEO_DS_PATH)
 
-
 def predict_ne(lat, lon, doy, alt, slt, year, master_geo_ds=master_geo_ds, model=optimized_xgb, scaler=scaler_large):
     """
     Predict the electron density (Ne) using geophysical indices and model features,
     clamping input values to the range of training data.
 
     Parameters:
-        lat (float): Latitude of the input location (clamped to training data range).
-        lon (float): Longitude of the input location (clamped to training data range).
-        doy (int): Day of the year (1-365, clamped to training data range).
-        alt (float): Altitude in kilometers (clamped to training data range).
-        slt (float): Solar local time in hours (0-24, clamped to training data range).
-        year (int): Target year for geophysical indices lookup.
-        master_geo_ds (xarray.Dataset): Dataset containing geophysical indices.
-        model (XGBRegressor): Trained XGBoost model for predictions.
-        scaler (StandardScaler): Scaler used for feature normalization.
+        lat, lon, doy, alt, slt: Scalars or arrays representing the inputs.
+        year: Target year to lookup geophysical indices in the dataset.
+        master_geo_ds: xarray.Dataset containing geophysical indices.
+        model: Pre-trained XGBoost model.
+        scaler: Scaler used for feature normalization.
 
     Returns:
-        float: Predicted electron density (Ne) in the original scale.
+        np.ndarray or float: Predicted electron density (Ne) in the original scale.
     """
+    # Ensure inputs are arrays for consistent processing
+    lat = np.atleast_1d(lat)
+    lon = np.atleast_1d(lon)
+    doy = np.atleast_1d(doy)
+    alt = np.atleast_1d(alt)
+    slt = np.atleast_1d(slt)
+
+    # Check if all input arrays are the same length
+    lengths = [len(lat), len(lon), len(doy), len(alt), len(slt)]
+    if len(set(lengths)) > 1:
+        raise ValueError(
+            f"All input arrays must have the same length. Received lengths: {lengths}"
+        )
+
     # Clamp inputs
-    lat = clamp(lat, *input_bounds["lat"])
-    lon = clamp(lon, *input_bounds["lon"])
-    alt = clamp(alt, *input_bounds["alt"])
-    slt = clamp(slt, *input_bounds["slt"])
+    lat = np.clip(lat, *input_bounds["lat"])
+    lon = np.clip(lon, *input_bounds["lon"])
+    alt = np.clip(alt, *input_bounds["alt"])
+    slt = np.clip(slt, *input_bounds["slt"])
+    doy = doy % 365  # Wrap DOY to [0, 364]
 
-    # Ensure `dates` coordinate is in datetime format
-    dates_as_datetime = pd.to_datetime(master_geo_ds["dates"].values)
+    # Prepare predictions
+    predictions = []
+    for i in range(len(lat)):
+        # Filter dataset by year
+        dates_as_datetime = pd.to_datetime(master_geo_ds["dates"].values)
+        year_mask = dates_as_datetime.year == year
+        if not np.any(year_mask):
+            raise ValueError(f"No data available in `master_geo_ds` for year {year}.")
+        filtered_data = master_geo_ds.sel(dates=year_mask)
 
-    # Filter by year and DOY
-    year_mask = dates_as_datetime.year == year
-    if not np.any(year_mask):
-        raise ValueError(f"No data available in `master_geo_ds` for year {year}.")
-    filtered_data = master_geo_ds.sel(dates=year_mask)
-    dates_doy = pd.to_datetime(filtered_data["dates"].values).dayofyear
-    doy_mask = dates_doy == doy
-    if not np.any(doy_mask):
-        raise ValueError(f"No data available in `master_geo_ds` for DOY {doy} in year {year}.")
-    matched_dates = filtered_data.sel(dates=doy_mask)
+        # Match DOY
+        dates_doy = pd.to_datetime(filtered_data["dates"].values).dayofyear
+        doy_mask = dates_doy == doy[i]
+        if not np.any(doy_mask):
+            raise ValueError(f"No data available in `master_geo_ds` for DOY {doy[i]} in year {year}.")
+        matched_dates = filtered_data.sel(dates=doy_mask)
 
-    # Extract geophysical indices
-    geo_indices = matched_dates.isel(dates=0)
-    hp30 = geo_indices["hp30"].values.item()
-    ap30 = geo_indices["ap30"].values.item()
-    f107 = geo_indices["f107"].values.item()
-    kp = geo_indices["kp"].values.item()
-    fism2 = geo_indices["fism2"].values.item()
+        # Find the SLT closest to the input SLT
+        slt_diff = np.abs(matched_dates["slt"].values - slt[i])
+        closest_slt_idx = slt_diff.argmin()
+        geo_indices = matched_dates.isel(dates=closest_slt_idx)
 
-    # Predict using the query_model function
-    return query_model(lat, lon, doy, alt, slt, hp30, ap30, f107, kp, fism2, model=model, scaler=scaler)
+        hp30 = geo_indices["hp30"].values.item()
+        ap30 = geo_indices["ap30"].values.item()
+        f107 = geo_indices["f107"].values.item()
+        kp = geo_indices["kp"].values.item()
+        fism2 = geo_indices["fism2"].values.item()
 
+        # Predict Ne using query_model
+        prediction = query_model(
+            lat[i], lon[i], doy[i], alt[i], slt[i],
+            hp30, ap30, f107, kp, fism2,
+            model=model, scaler=scaler
+        )
+        predictions.append(prediction)
+
+    # Return predictions as an array
+    return np.squeeze(predictions)  # Squeeze to handle scalar results
 
 def query_model(lat, lon, doy, alt, slt, hp30, ap30, f107, kp, fism2, model=optimized_xgb, scaler=scaler_large):
     """
@@ -130,34 +147,68 @@ def query_model(lat, lon, doy, alt, slt, hp30, ap30, f107, kp, fism2, model=opti
     clamping input values to the range of training data.
 
     Parameters:
-        lat, lon, doy, alt, slt, hp30, ap30, f107, kp, fism2: Model inputs.
+        lat, lon, doy, alt, slt, hp30, ap30, f107, kp, fism2: Model inputs. These can be scalars or arrays.
 
     Returns:
-        float: Predicted electron density (Ne) in the original scale.
+        np.ndarray or float: Predicted electron density (Ne) in the original scale.
     """
+    # Ensure inputs are arrays for consistent processing
+    lat = np.atleast_1d(lat)
+    lon = np.atleast_1d(lon)
+    doy = np.atleast_1d(doy)
+    alt = np.atleast_1d(alt)
+    slt = np.atleast_1d(slt)
+    hp30 = np.atleast_1d(hp30)
+    ap30 = np.atleast_1d(ap30)
+    f107 = np.atleast_1d(f107)
+    kp = np.atleast_1d(kp)
+    fism2 = np.atleast_1d(fism2)
+
+    # Check if all input arrays are the same length
+    lengths = [len(lat), len(lon), len(doy), len(alt), len(slt), len(hp30), len(ap30), len(f107), len(kp), len(fism2)]
+    if len(set(lengths)) > 1:
+        raise ValueError(
+            f"All input arrays must have the same length. Received lengths: {lengths}"
+        )
+
     # Clamp inputs
-    lat = clamp(lat, *input_bounds["lat"])
-    lon = clamp(lon, *input_bounds["lon"])
-    alt = clamp(alt, *input_bounds["alt"])
-    slt = clamp(slt, *input_bounds["slt"])
+    lat = np.clip(lat, *input_bounds["lat"])
+    lon = np.clip(lon, *input_bounds["lon"])
+    alt = np.clip(alt, *input_bounds["alt"])
+    slt = np.clip(slt, *input_bounds["slt"])
+    doy = doy % 365  # Wrap DOY to [0, 364]
 
-    # Compute trigonometric features for SLT and DOY
-    doy_sin = np.sin(2 * np.pi * doy / 365)
-    doy_cos = np.cos(2 * np.pi * doy / 365)
-    slt_sin = np.sin(2 * np.pi * slt / 24)
-    slt_cos = np.cos(2 * np.pi * slt / 24)
+    # Prepare predictions
+    predictions = []
+    for i in range(len(lat)):
+        # Compute trigonometric features for SLT and DOY
+        doy_sin = np.sin(2 * np.pi * doy[i] / 365)
+        doy_cos = np.cos(2 * np.pi * doy[i] / 365)
+        slt_sin = np.sin(2 * np.pi * slt[i] / 24)
+        slt_cos = np.cos(2 * np.pi * slt[i] / 24)
 
-    # Prepare input features
-    input_features = np.array([[
-        lat, lon, alt, slt, doy, hp30, ap30, f107, kp, fism2,
-        slt_sin, slt_cos, doy_sin, doy_cos, alt * f107, lat * fism2,
-        hp30 / (ap30 + 1e-6), f107 * kp, alt ** 2, f107 ** 2,
-        slt ** 3, doy ** 3, np.log1p(f107), np.log1p(ap30)
-    ]])
+        # Prepare input features
+        input_features = np.array([[
+            lat[i], lon[i], alt[i], slt[i], doy[i], hp30[i], ap30[i], f107[i], kp[i], fism2[i],
+            slt_sin, slt_cos, doy_sin, doy_cos,
+            alt[i] * f107[i],  # Engineered feature: alt_f107
+            lat[i] * fism2[i],  # Engineered feature: lat_fism2
+            hp30[i] / (ap30[i] + 1e-6),  # Engineered feature: hp30_ap30
+            f107[i] * kp[i],  # Engineered feature: f107_kp
+            alt[i] ** 2,  # Engineered feature: alt_squared
+            f107[i] ** 2,  # Engineered feature: f107_squared
+            slt[i] ** 3,  # Engineered feature: slt_cubed
+            doy[i] ** 3,  # Engineered feature: doy_cubed
+            np.log1p(f107[i]),  # Engineered feature: log_f107
+            np.log1p(ap30[i])  # Engineered feature: log_ap30
+        ]])
 
-    # Scale features
-    input_features_scaled = scaler.transform(input_features)
+        # Scale features
+        input_features_scaled = scaler.transform(input_features)
 
-    # Predict using the model
-    prediction_log = model.predict(input_features_scaled)
-    return np.expm1(prediction_log)[0]  # Transform back from log scale
+        # Predict using the model
+        prediction_log = model.predict(input_features_scaled)
+        predictions.append(np.expm1(prediction_log)[0])  # Transform back from log scale
+
+    # Return predictions as an array
+    return np.squeeze(predictions)  # Squeeze to handle scalar results

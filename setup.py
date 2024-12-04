@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="MISA_XGModel",  # Replace with your project name
-    version="0.1.5",  # Semantic versioning (Major.Minor.Patch)
+    version="0.2.0",  # Semantic versioning (Major.Minor.Patch)
     author="Mateo Cardona Serrano",  # Replace with your name
     author_email="mcardonaserrano@berkeley.edu",  # Replace with your email
     description="A Python library for predicting electron density using XGBoost",  # Short description
