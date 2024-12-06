@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="MISA_XGModel",
-    version="0.2.1",  # Semantic versioning (Major.Minor.Patch)
+    version="0.2.2",  # Semantic versioning (Major.Minor.Patch)
     author="Mateo Cardona Serrano",
     author_email="mcardonaserrano@berkeley.edu",
     description="A Python library for predicting electron density using XGBoost",
@@ -26,7 +26,8 @@ setup(
         "xarray",
         "scikit-learn",
         "netcdf4",
-        "pandas"
+        "pandas",
+        "tqdm"
     ],
     include_package_data=True,  # Include non-Python files specified in MANIFEST.in
 )

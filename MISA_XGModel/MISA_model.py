@@ -6,10 +6,11 @@ import xarray as xr
 import pandas as pd
 import json
 from sklearn.preprocessing import StandardScaler
+import tqdm
 
 # Dropbox URLs for required files
-MODEL_URL = "https://www.dropbox.com/scl/fi/buerwbp580l98c5egbmvg/xgboost_optimized_model.json?rlkey=0mxboow2r44j7pz3xx199inko&dl=1"
-SCALER_URL = "https://www.dropbox.com/scl/fi/6oas604oh4xcupzc8at2b/scaler_large.json?rlkey=6huwm1baf1vc7cf9r4of4xxds&st=2s3wu078&dl=1"
+MODEL_URL = "https://www.dropbox.com/scl/fi/buerwbp580l98c5egbmvg/xgboost_optimized_model.json?rlkey=0mxboow2r44j7pz3xx199inko&st=aybkpfkr&dl=1"
+SCALER_URL = "https://www.dropbox.com/scl/fi/d6zal5lp5bjomr8qb6b35/scaler_large.json?rlkey=78e3421adlagn48jtqt8vo8wa&st=sm1rjver&dl=1"
 GEO_DS_URL = "https://www.dropbox.com/scl/fi/m9loyzdo0r6j5mvb5lku4/master_geo_ds.nc?rlkey=6s7br1o4wh7vbiuctmrtlhe7v&st=x4mpl3e3&dl=1"
 
 # Paths to save downloaded files
@@ -21,6 +22,7 @@ MASTER_GEO_DS_PATH = "data/master_geo_ds.nc"
 input_bounds = {
     'lat': (np.float64(37.5), np.float64(49.9)),
     'lon': (np.float64(-85.7), np.float64(-76.1)),
+    'doy': (np.float64(91),np.float64(120)),
     'alt': (np.float64(94.6), np.float64(500)),
     'slt': (np.float64(0.0), np.float64(24))
 }
@@ -100,11 +102,11 @@ def predict_ne(lat, lon, doy, alt, slt, year, master_geo_ds=master_geo_ds, model
     lon = np.clip(lon, *input_bounds["lon"])
     alt = np.clip(alt, *input_bounds["alt"])
     slt = np.clip(slt, *input_bounds["slt"])
-    doy = doy % 365  # Wrap DOY to [0, 364]
+    doy = np.clip(doy, *input_bounds["doy"])
 
     # Prepare predictions
     predictions = []
-    for i in range(len(lat)):
+    for i in tqdm(range(len(lat))):
         # Filter dataset by year
         dates_as_datetime = pd.to_datetime(master_geo_ds["dates"].values)
         year_mask = dates_as_datetime.year == year
