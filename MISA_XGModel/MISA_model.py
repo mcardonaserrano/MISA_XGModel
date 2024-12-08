@@ -69,7 +69,7 @@ optimized_xgb.load_model(MODEL_PATH)
 scaler_large = load_scaler(SCALER_PATH)
 master_geo_ds = xr.open_dataset(MASTER_GEO_DS_PATH)
 
-def predict_ne(lat, lon, doy, alt, slt, year, master_geo_ds=master_geo_ds, model=optimized_xgb, scaler=scaler_large):
+def predict_ne(lat, lon, doy, alt, slt, year, master_geo_ds=master_geo_ds, model=optimized_xgb, scaler=scaler_large,verbose=False):
     """
     Predict the electron density (Ne) using geophysical indices and model features,
     clamping input values to the range of training data.
@@ -107,7 +107,7 @@ def predict_ne(lat, lon, doy, alt, slt, year, master_geo_ds=master_geo_ds, model
 
     # Prepare predictions
     predictions = []
-    for i in tqdm(range(len(lat))):
+    for i in (tqdm(range(len(lat))) if verbose else range(len(lat))):
         # Filter dataset by year
         dates_as_datetime = pd.to_datetime(master_geo_ds["dates"].values)
         year_mask = dates_as_datetime.year == year

@@ -89,7 +89,7 @@ print(f"Predicted Ne: {predicted_ne}")
 
 # Batch predict Ne with precomputed geophysical indices
 predicted_ne = query_model(
-    lat=lats, lon=lons, doy=doys, alt=alts, slt=slts,
+    verbose=True, lat=lats, lon=lons, doy=doys, alt=alts, slt=slts,
     hp30=np.array([2, 3, 4]),
     ap30=np.array([7, 8, 9]),
     f107=np.array([209, 210, 211]),
@@ -104,6 +104,8 @@ print(f"Predicted Ne: {predicted_ne}")
 ## **Inputs and Parameters**
 
 ### **Clamping and Wrapping Input Values**
+
+Set argument `verbose=True` to enable progress bar.
 
 Input parameters (`lat`, `lon`, `alt`, `slt`) are clamped to the boundaries of the training data, while `doy` is wrapped to stay within `[0, 364]`. These boundaries are defined as follows:
 
