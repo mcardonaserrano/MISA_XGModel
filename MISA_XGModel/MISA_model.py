@@ -7,11 +7,12 @@ import pandas as pd
 import json
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
+import netCDF4
 
 # Dropbox URLs for required files
 MODEL_URL = "https://www.dropbox.com/scl/fi/buerwbp580l98c5egbmvg/xgboost_optimized_model.json?rlkey=0mxboow2r44j7pz3xx199inko&st=aybkpfkr&dl=1"
 SCALER_URL = "https://www.dropbox.com/scl/fi/d6zal5lp5bjomr8qb6b35/scaler_large.json?rlkey=78e3421adlagn48jtqt8vo8wa&st=sm1rjver&dl=1"
-GEO_DS_URL = "https://www.dropbox.com/scl/fi/m9loyzdo0r6j5mvb5lku4/master_geo_ds.nc?rlkey=6s7br1o4wh7vbiuctmrtlhe7v&st=x4mpl3e3&dl=1"
+GEO_DS_URL = "https://www.dropbox.com/scl/fi/bxlewz9yef8hnrzjmteg2/master_geo_ds.nc?rlkey=inpht451hp4o6ucwjy554vakn&st=402lxolq&dl=1"
 
 # Paths to save downloaded files
 MODEL_PATH = "data/xgboost_optimized_model.json"
