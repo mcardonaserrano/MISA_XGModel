@@ -6,7 +6,7 @@ import xarray as xr
 import pandas as pd
 import json
 from sklearn.preprocessing import StandardScaler
-import tqdm
+from tqdm import tqdm
 
 # Dropbox URLs for required files
 MODEL_URL = "https://www.dropbox.com/scl/fi/buerwbp580l98c5egbmvg/xgboost_optimized_model.json?rlkey=0mxboow2r44j7pz3xx199inko&st=aybkpfkr&dl=1"
